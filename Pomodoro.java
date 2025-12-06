@@ -1,48 +1,63 @@
 
-import java.util.Timer;
-import java.util.TimerTask;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import javax.swing.Timer;
 
-public final class Pomodoro implements PomodoroInterface{
+public final class Pomodoro implements PomodoroInterface {
 
-    int timeLeft;
-    int workMinutes;
-    int breakMinutes;
+    public int timeLeft;
+    private int workMinutes;
+    private int breakMinutes;
+
+    private Timer timer;
+    private Runnable onTick;
+
+    private boolean isPaused = false;
+    private boolean inWork = true;
 
     //takes time in minutes
-    public Pomodoro(int workMinutes, int breakMinutes) {
+    public Pomodoro(int workMinutes, int breakMinutes, Runnable onTick) {
         this.workMinutes = workMinutes;
         this.breakMinutes = breakMinutes;
+        this.onTick = onTick;
         startWorkTimer();
     }
 
+    public void pause() {
+        isPaused = !isPaused;
+        System.out.println(isPaused ? "Timer paused\n" : "Timer resumed\n");
+    }
+
     public void startWorkTimer() {
-        timeLeft = workMinutes * 60;
-        Timer timer = new Timer();
-        timer.scheduleAtFixedRate(new TimerTask() {
-            public void run() {
-                System.out.println("Work minutes remaining: " + (timeLeft / 60) + " Seconds Remaining: " + (timeLeft % 60) + "\n");
-                timeLeft--;
-                if (timeLeft < 0) {
-                    timer.cancel();
-                    startBreakTimer();
-                }
-            }
-        }, 0, 1000);
+        inWork = true;
+        startTimer(workMinutes * 60);
     }
 
     public void startBreakTimer() {
-        timeLeft = breakMinutes * 60;
-        Timer timer = new Timer();
-        timer.scheduleAtFixedRate(new TimerTask() {
-            public void run() {
-                System.out.println("Break minutes remaining: " + (timeLeft / 60) + " Seconds Remaining: " + (timeLeft % 60) + "\n");
-                timeLeft--;
-                if (timeLeft < 0) {
-                    timer.cancel();
-                    startWorkTimer();
+        inWork = false;
+        startTimer(breakMinutes * 60);
+    }
+
+    private void startTimer(int seconds) {
+        timeLeft = seconds;
+        timer = new Timer(1000, new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                if (!isPaused) {
+                    timeLeft--;
+                    onTick.run();
+
+                    if (timeLeft < 0){
+                        timer.stop();
+                        if (inWork){
+                            startBreakTimer();
+                        }else{
+                            startWorkTimer();
+                        }
+                    }
                 }
             }
-        }, 1, 1000);
+        });
+        timer.start();
     }
 
 }
