@@ -1,4 +1,9 @@
-
+/**
+ * 
+ * GUI and Driver class for Pomodoro.java
+ * 
+ * @author ShaelynnNixon
+ */
 import java.awt.FlowLayout;
 import java.awt.Font;
 import javax.swing.*;
