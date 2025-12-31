@@ -61,7 +61,7 @@ public final class Pomodoro implements PomodoroInterface {
 
     public void startWorkTimer() {
         inWork = true;
-        startTimer(workMinutes);
+        startTimer(workMinutes* 60);
     }
 
     public boolean endOfTimer = false;
