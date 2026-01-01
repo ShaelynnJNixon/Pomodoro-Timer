@@ -7,6 +7,8 @@ package pomodoro;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -33,6 +35,7 @@ public class JavaFXDriver extends Application {
     boolean paused = false;
     int workMinutes = 45;
     int breakMinutes = 5;
+    Scene scene1;
 
     public static void main(String[] args) {
         launch(args);
@@ -41,6 +44,7 @@ public class JavaFXDriver extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
+
         window = primaryStage;
         TextField workField = new TextField();
         workField.setPromptText("Work minutes");
@@ -55,13 +59,17 @@ public class JavaFXDriver extends Application {
 
         startButton = new Button("Start");
 
-        VBox layout1 = new VBox(10, workField, breakField, taskField, startButton, errorLabel);
-        Scene scene1 = new Scene(layout1, 500, 500);
+        VBox layout1 = new VBox(15);
+        layout1.setPadding(new Insets(30));
+        layout1.setAlignment(Pos.CENTER);
+
+        scene1 = new Scene(layout1, 500, 500);
 
         //scene 2
 
         timeLabel = new Label("00:00");
         taskLabel = new Label("Task name: ");
+        timeLabel.setId("timer-label");
         pauseButton = new Button("Pause");
         acknowledgeButton = new Button("Acknowledge");
         acknowledgeButton.setDisable(true);
@@ -77,7 +85,7 @@ public class JavaFXDriver extends Application {
                 pauseButton.setText("Pause");
 
                 updateLabel();
-            }else{
+            } else {
                 paused = true;
                 pauseButton.setText("Start");
                 updateLabel();
@@ -112,6 +120,12 @@ public class JavaFXDriver extends Application {
                 errorLabel.setText("Please enter valid positive numbers.");
             }
         });
+
+        layout1.setAlignment(Pos.TOP_LEFT);
+        layout2.setAlignment(Pos.CENTER);
+        layout1.getChildren().addAll(workField, breakField, taskField, startButton, errorLabel);
+        scene1.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+        scene2.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
 
         window.setTitle("Pomodoro Timer");
         getTaskButtons(layout1);
