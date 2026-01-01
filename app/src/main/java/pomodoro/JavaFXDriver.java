@@ -114,7 +114,7 @@ public class JavaFXDriver extends Application {
 
                 p = new Pomodoro(workMinutes, breakMinutes, this::updateLabel);
                 window.setScene(scene2);
-
+                updateLabel();
 
             } catch (NumberFormatException ex) {
                 errorLabel.setText("Please enter valid positive numbers.");

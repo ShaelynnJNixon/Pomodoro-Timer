@@ -4,7 +4,7 @@
 }
 
 .button {
-    -fx-background-color: #2ecc71;
+    -fx-background-color: #8fd8f3;
     -fx-text-fill: white;
     -fx-font-weight: bold;
     -fx-background-radius: 5;
@@ -12,7 +12,7 @@
 }
 
 .button:hover {
-    -fx-background-color: #27ae60;
+    -fx-background-color: #074e78;
 }
 
 .label {
@@ -23,7 +23,7 @@
 #timer-label {
     -fx-font-size: 60px;
     -fx-font-weight: bold;
-    -fx-text-fill: #e74c3c;
+    -fx-text-fill: #303c4a;
 }
 
 .text-field {
@@ -41,6 +41,6 @@
 }
 
 #timer-label {
-    -fx-text-fill: #e74c3c !important;
+    -fx-text-fill: #001060 !important;
     -fx-font-size: 60px;
 }
