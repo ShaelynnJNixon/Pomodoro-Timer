@@ -16,11 +16,11 @@ public final class Pomodoro implements PomodoroInterface {
     private final int breakMinutes;
     Clip clip;
 
-    private Timeline timeLine;
+    protected Timeline timeLine;
     private final Runnable onTick;
 
     private boolean isPaused = false;
-    private boolean inWork = true;
+    protected boolean inWork = true;
     private boolean waiting = false;
 
     //takes time in minutes

@@ -13,8 +13,13 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Line;
 import javafx.stage.Stage;
+
 
 import java.io.File;
 import java.sql.*;
@@ -33,9 +38,16 @@ public class JavaFXDriver extends Application {
     Button saveButton;
     Scene scene2;
     boolean paused = false;
-    int workMinutes = 45;
-    int breakMinutes = 5;
+    static int workMinutes;
+    static int breakMinutes;
     Scene scene1;
+    int totalSecondsWorked = 0;
+    Line clockHand;
+    javafx.scene.shape.Circle clockFace;
+    javafx.scene.shape.Circle clockSpacer;
+    javafx.scene.transform.Rotate handRotation = new javafx.scene.transform.Rotate();
+    javafx.scene.shape.Arc progressArc;
+    javafx.scene.shape.Circle clockBorder;
 
     public static void main(String[] args) {
         launch(args);
@@ -44,127 +56,205 @@ public class JavaFXDriver extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
-
         window = primaryStage;
+
+        // --- 1. SETUP UI (Scene 1) ---
+        VBox sidebar = new VBox(10);
+        sidebar.setPadding(new Insets(20));
+        sidebar.setPrefWidth(150);
+        sidebar.getStyleClass().add("sidebar");
+        Label historyLabel = new Label("History");
+        historyLabel.setStyle("-fx-font-weight: bold;");
+        sidebar.getChildren().add(historyLabel);
+        getTaskButtons(sidebar);
+
         TextField workField = new TextField();
         workField.setPromptText("Work minutes");
-
         TextField breakField = new TextField();
         breakField.setPromptText("Break minutes");
-
         TextField taskField = new TextField();
         taskField.setPromptText("Task name");
-
+        startButton = new Button("Start");
         Label errorLabel = new Label();
 
-        startButton = new Button("Start");
+        VBox setupCenter = new VBox(15, new Label("New Session"), taskField, workField, breakField, startButton, errorLabel);
+        setupCenter.setAlignment(Pos.CENTER);
+        setupCenter.setPadding(new Insets(30));
 
-        VBox layout1 = new VBox(15);
-        layout1.setPadding(new Insets(30));
-        layout1.setAlignment(Pos.CENTER);
+        BorderPane root1 = new BorderPane();
+        root1.setLeft(sidebar);
+        root1.setCenter(setupCenter);
+        scene1 = new Scene(root1, 700, 500);
 
-        scene1 = new Scene(layout1, 500, 500);
-
-        //scene 2
-
+        // --- 2. TIMER UI (Scene 2) ---
         timeLabel = new Label("00:00");
-        taskLabel = new Label("Task name: ");
         timeLabel.setId("timer-label");
+        taskLabel = new Label("Current Task: ");
         pauseButton = new Button("Pause");
         acknowledgeButton = new Button("Acknowledge");
         acknowledgeButton.setDisable(true);
         saveButton = new Button("Save");
 
-        VBox layout2 = new VBox(10, taskLabel, timeLabel, pauseButton, acknowledgeButton, saveButton);
-        scene2 = new Scene(layout2, 500, 500);
+        StackPane stopwatch = createStopWatch();
+
+        VBox timerCenter = new VBox(20, taskLabel, timeLabel, stopwatch, pauseButton, acknowledgeButton, saveButton);
+        timerCenter.setAlignment(Pos.CENTER);
+
+        BorderPane root2 = new BorderPane();
+        root2.setCenter(timerCenter);
+        scene2 = new Scene(root2, 700, 500);
+
+
+        javafx.beans.binding.NumberBinding radiusBinding =
+                javafx.beans.binding.Bindings.min(scene2.widthProperty(), scene2.heightProperty()).divide(5);
+
+        clockFace.radiusProperty().bind(radiusBinding);
+        clockSpacer.radiusProperty().bind(radiusBinding);
+        clockHand.endYProperty().bind(radiusBinding.multiply(-0.99));
+        progressArc.radiusXProperty().bind(radiusBinding);
+        progressArc.radiusYProperty().bind(radiusBinding);
+        clockBorder.radiusProperty().bind(radiusBinding);
+
+        startButton.setOnAction(e -> {
+            try {
+                workMinutes = Integer.parseInt(workField.getText());
+                breakMinutes = Integer.parseInt(breakField.getText());
+                taskName = taskField.getText();
+
+                totalSecondsWorked = workMinutes * 60;
+
+                taskLabel.setText("Current Task: " + taskName);
+                p = new Pomodoro(workMinutes, breakMinutes, this::updateLabel);
+                updateLabel();
+                window.setScene(scene2);
+            } catch (NumberFormatException ex) {
+                errorLabel.setText("Check your numbers!");
+            }
+        });
 
         pauseButton.setOnAction(e -> {
-            if (p != null) p.pause();
-            if (paused) {
-                paused = false;
-                pauseButton.setText("Pause");
-
-                updateLabel();
-            } else {
-                paused = true;
-                pauseButton.setText("Start");
-                updateLabel();
+            if (p != null) {
+                p.pause();
+                paused = !paused;
+                pauseButton.setText(paused ? "Start" : "Pause");
             }
+        });
+
+        saveButton.setOnAction(e -> {
+            dumpToDatabase();
+            if (p != null && p.timeLine != null) {
+                p.timeLine.stop();
+            }
+            Platform.exit();
+            System.exit(0);
         });
 
         acknowledgeButton.setOnAction(e -> {
             if (p != null) p.acknowledge();
         });
 
-        saveButton.setOnAction(e -> dumpToDatabase());
-
-
-        startButton.setOnAction(e -> {
-            try {
-                int workMinutes = Integer.parseInt(workField.getText());
-                int breakMinutes = Integer.parseInt(breakField.getText());
-                taskName = taskField.getText();
-                taskLabel.setText("Current Task: " + taskName);
-                Task newTask = new Task(taskName, 0);
-
-
-                if (workMinutes <= 0 || breakMinutes <= 0) {
-                    throw new NumberFormatException();
-                }
-
-                p = new Pomodoro(workMinutes, breakMinutes, this::updateLabel);
-                window.setScene(scene2);
-                updateLabel();
-
-            } catch (NumberFormatException ex) {
-                errorLabel.setText("Please enter valid positive numbers.");
-            }
-        });
-
-        layout1.setAlignment(Pos.TOP_LEFT);
-        layout2.setAlignment(Pos.CENTER);
-        layout1.getChildren().addAll(workField, breakField, taskField, startButton, errorLabel);
-        scene1.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
-        scene2.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+        String css = getClass().getResource("/style.css").toExternalForm();
+        scene1.getStylesheets().add(css);
+        scene2.getStylesheets().add(css);
 
         window.setTitle("Pomodoro Timer");
-        getTaskButtons(layout1);
         window.setScene(scene1);
         window.show();
     }
 
     private void updateLabel() {
-        Platform.runLater(new Runnable() {
-            @Override
-            public void run() {
-
-                timeLabel.setText(String.format("%02d:%02d", p.timeLeft / 60, p.timeLeft % 60));
-
-                acknowledgeButton.setDisable(!p.isWaiting());
-
+        Platform.runLater(() -> {
+            timeLabel.setText(String.format("%02d:%02d", p.timeLeft / 60, p.timeLeft % 60));
+            progressArc.setFill(p.inWork ? Color.LIGHTBLUE : Color.LIGHTGRAY);
+            int currentTotalSeconds;
+            if (p.inWork) {
+                currentTotalSeconds = workMinutes * 60;
+            } else {
+                currentTotalSeconds = breakMinutes * 60;
             }
-
+            if (!paused && !p.isWaiting() && currentTotalSeconds > 0) {
+                int timePassed = currentTotalSeconds - p.timeLeft;
+                double progress = (double) timePassed / currentTotalSeconds;
+                double angle = progress * 360;
+                handRotation.setAngle(angle);
+                progressArc.setLength(-angle);
+            } else if (p.isWaiting()) {
+                handRotation.setAngle(0);
+                progressArc.setLength(0);
+            }
+            if (!paused && p.inWork) {
+                minutesWorked = (int) (workMinutes - p.timeLeft / 60.0);
+            }
+            acknowledgeButton.setDisable(!p.isWaiting());
 
         });
     }
 
+    private StackPane createStopWatch() {
+            clockFace = new javafx.scene.shape.Circle();
+            clockFace.setFill(Color.TRANSPARENT);
+            clockFace.setStroke(null);
+
+            clockHand = new javafx.scene.shape.Line(0, 0, 0, 0);
+            clockHand.setStroke(Color.BLACK);
+            clockHand.setStrokeWidth(3);
+            clockHand.setStrokeLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
+
+            progressArc = new javafx.scene.shape.Arc();
+            progressArc.setCenterX(0);
+            progressArc.setCenterY(0);
+            progressArc.setStartAngle(90);
+            progressArc.setLength(0);
+            progressArc.setType(javafx.scene.shape.ArcType.ROUND);
+            progressArc.setFill(Color.LIGHTBLUE);
+
+            clockBorder = new javafx.scene.shape.Circle();
+            clockBorder.setFill(Color.TRANSPARENT);
+            clockBorder.setStroke(Color.BLACK);
+            clockBorder.setStrokeWidth(5);
+
+            handRotation.setPivotX(0);
+            handRotation.setPivotY(0);
+            clockHand.getTransforms().add(handRotation);
+
+            clockSpacer = new javafx.scene.shape.Circle();
+            clockSpacer.setFill(javafx.scene.paint.Color.TRANSPARENT);
+
+
+            javafx.scene.Group handContainer = new javafx.scene.Group(clockSpacer, progressArc, clockHand);
+
+
+            StackPane icon = new StackPane(clockFace, handContainer, clockBorder);
+
+            return icon;
+    }
+
     public static void dumpToDatabase() {
-        try (Connection conn =
-                     DriverManager.getConnection("jdbc:sqlite:pomodoro.db")) {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite:pomodoro.db")) {
 
             String createSql =
                     "CREATE TABLE IF NOT EXISTS tasks (" +
-                            "taskName TEXT NOT NULL, " +
-                            "minutesWorked INTEGER NOT NULL" +
+                            "taskName TEXT NOT NULL UNIQUE, " +
+                            "minutesWorked INTEGER DEFAULT 0, " +
+                            "workMinutes INTEGER, " +
+                            "breakMinutes INTEGER" +
                             ")";
             conn.createStatement().execute(createSql);
 
-            String insertSql =
-                    "INSERT INTO tasks (taskName, minutesWorked) VALUES (?, ?)";
 
-            try (PreparedStatement pstmt = conn.prepareStatement(insertSql)) {
+            String upsertSql =
+                    "INSERT INTO tasks (taskName, minutesWorked, workMinutes, breakMinutes) " +
+                            "VALUES (?, ?, ?, ?) " +
+                            "ON CONFLICT(taskName) DO UPDATE SET " +
+                            "minutesWorked = tasks.minutesWorked + excluded.minutesWorked, " +
+                            "workMinutes = excluded.workMinutes, " +
+                            "breakMinutes = excluded.breakMinutes";
+
+            try (PreparedStatement pstmt = conn.prepareStatement(upsertSql)) {
                 pstmt.setString(1, taskName);
                 pstmt.setInt(2, minutesWorked);
+                pstmt.setInt(3, workMinutes);
+                pstmt.setInt(4, breakMinutes);
                 pstmt.executeUpdate();
             }
 
@@ -177,7 +267,6 @@ public class JavaFXDriver extends Application {
         File dbFile = new File(dbPath);
 
         if (!dbFile.exists()) {
-            // Database does not exist → do nothing
             return null;
         }
 
@@ -187,27 +276,34 @@ public class JavaFXDriver extends Application {
 
     private void getTaskButtons(VBox container) throws SQLException {
         File dbFile = new File("pomodoro.db");
-        if (!dbFile.exists()) {
-            return; // No DB → no buttons
-        }
+        if (!dbFile.exists()) return;
 
         String url = "jdbc:sqlite:pomodoro.db";
-        String query = "SELECT DISTINCT taskName FROM tasks";
+
+
+        String query = "SELECT taskName, workMinutes, breakMinutes FROM tasks";
 
         try (Connection conn = DriverManager.getConnection(url);
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
 
             while (rs.next()) {
-                String task = rs.getString("taskName");
+                String dbtaskName = rs.getString("taskName");
+                int savedWork = rs.getInt("workMinutes");
+                int savedBreak = rs.getInt("breakMinutes");
 
-                Button taskButton = new Button(task);
+                Button taskButton = new Button(dbtaskName);
                 taskButton.setMaxWidth(Double.MAX_VALUE);
 
                 taskButton.setOnAction(e -> {
-                    taskName = task;
-                    taskLabel.setText("Current Task: " + task);
+                    taskName = dbtaskName;
+                    workMinutes = (savedWork > 0) ? savedWork : 25;
+                    breakMinutes = (savedBreak > 0) ? savedBreak : 5;
+
+                    taskLabel.setText("Current Task: " + taskName);
                     p = new Pomodoro(workMinutes, breakMinutes, this::updateLabel);
+
+                    updateLabel();
                     window.setScene(scene2);
                 });
 
@@ -217,6 +313,8 @@ public class JavaFXDriver extends Application {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
+
     }
 
 
